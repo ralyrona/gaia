@@ -392,6 +392,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "gaia"
+version = "0.1.0"
+dependencies = [
+ "colored",
+ "flate2",
+ "reqwest",
+ "tar",
+ "xz",
+ "zip",
+]
+
+[[package]]
 name = "generic-array"
 version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -798,18 +810,6 @@ dependencies = [
  "cc",
  "libc",
  "pkg-config",
-]
-
-[[package]]
-name = "maia"
-version = "0.0.0"
-dependencies = [
- "colored",
- "flate2",
- "reqwest",
- "tar",
- "xz",
- "zip",
 ]
 
 [[package]]
