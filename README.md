@@ -29,7 +29,7 @@ Remove removes applications and any configuration data that *GAIA* created for t
 # Compilation from Source
 GAIA requires OpenSSL to function. OpenSSL can be installed with this command:
 `sudo apt install libssl-dev`
-Then it can be compiled with Cargo.
+Then it can be compiled with `cargo build` and `cargo build --release`.
 # Issues
 1. There are issues with creating the proper configuration data for applications installed from file archives (e.g. zip, tar, etc.)
 2. If you use the `override` command to update an existing application, then the existence of certain files may become entirely unknown by the configuration data, making them impossible to remove automatically
