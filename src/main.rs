@@ -1,5 +1,5 @@
 /* Github Automated Installation Application
-Copyright (C) 2026 Raly Rowland
+Copyright (C) 2026 Ralyrona
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -23,6 +23,14 @@ use std::path::Path;
 use reqwest::blocking;
 use colored::Colorize;
 
+fn get_file_info(filepath: String) -> String {
+    let fileinfo_raw = Command::new("file")
+        .arg(filepath)
+        .output()
+        .expect(&format!("{}", "Faliure".red().bold()));
+    let fileinfo = String::from_utf8(fileinfo_raw.stdout).expect(&format!("{}", "Faliure".red().bold()));
+    fileinfo
+}
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = "/etc/gaia/";
     let install = "/usr/local/bin/";
@@ -43,20 +51,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             process::exit(3);
         }
         let repo: Vec<&str> = args[2].split("/").collect();
-        print!("Preparing to install {} ... ", args[2]);
-        std::io::stdout().flush().unwrap();
-        let install = args[2].to_lowercase();
         if repo.len() < 2 {
             println!("{}: {} is not a valid application name. Run 'gaia help install' for more information.", "Error".yellow().bold(), args[2]);
-            process::exit(4);
+            process::exit(3);
         }
+        let install = args[2].to_lowercase();
+        if Path::new(&format!("{}/{}", config, install)).exists() {
+            println!("{}: {} is already installed (try 'sudo gaia override {}').", "Error".yellow().bold(), args[2], args[2]);
+            process::exit(3);
+        }
+        print!("Preparing to install {} ... ", args[2]);
+        std::io::stdout().flush().unwrap();
         let url = format!("https://api.github.com/repos/{}/releases/latest", &install);
         fs::create_dir_all(format!("{}{}", config, repo[0].to_lowercase()))?;
         // get data
-        let raw = Command::new("curl")
-            .arg(url)
-            .output()
-            .expect(&format!("{}", "Faliure".red().bold()));
+        let raw = Command::new("curl").arg(url).output().unwrap();
         let data = String::from_utf8(raw.stdout).expect(&format!("{}", "Faliure".red().bold()));
         let parts: Vec<&str> = data.split("\n").collect();
         // check for matching files
@@ -66,28 +75,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let mut fname = split[1].to_string();
                 fname.retain(|c| c != '"');
                 fname.retain(|c| c != ',');
-                let splitname: Vec<&str> = fname.split(".").collect();
-                let truename = splitname[0].to_lowercase();
-                let pathstr = format!("/usr/local/bin/{}", truename);
+                let pathstr = format!("/usr/local/bin/{}", fname);
                 let path = Path::new(&pathstr);
                 if path.exists() {
-                    println!("{}: {} is already installed (try 'sudo gaia override {}')", "Faliure".red().bold(), args[2], args[2]);
-                    process::exit(3);
+                    println!("{}: Installing {} would overwrite file {} (try 'sudo gaia override {}')", "Faliure".red().bold(), args[2], fname, args[2]);
+                    process::exit(4);
                 }
             }
             // check for error messages
             if part.contains("message") {
                 if part.contains("Not Found") {
                     println!("{}: 404 not found", "Faliure".red().bold());
-                    process::exit(2);
+                    process::exit(4);
                 }
                 if part.contains("Moved Permanently") {
                     println!("{}: Repository {} has moved", "Faliure".red().bold(), args[2]);
-                    process::exit(2);
+                    process::exit(4);
                 }
                 if part.contains("API rate limit exceeded") {
                     println!("{}: API rate limit exceeded", "Faliure".red().bold());
-                    process::exit(2);
+                    process::exit(4);
                 }
             }
         }
@@ -106,19 +113,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let fname: Vec<&str> = link.split("/").collect();
                 print!("Downloading file {} ... ", fname[fname.len() - 1]);
                 std::io::stdout().flush().unwrap();
-                let splitname: Vec<&str> = fname[fname.len() - 1].split(".").collect();
-                let truename = splitname[0].to_lowercase();
                 let response = blocking::get(&link).unwrap();
-                let mut dest = File::create(format!("/usr/local/bin/{}", truename)).unwrap();
+                let mut dest = File::create(format!("/usr/local/bin/{}", fname[fname.len() - 1])).unwrap();
                 let content = response.bytes()?;
                 copy(&mut content.as_ref(), &mut dest).unwrap();
                 println!("{}", "Success".green().bold());
-                if splitname.len() > 1 && (splitname[splitname.len() - 1] == "tar" || splitname[splitname.len() - 1] == "gz" || splitname[splitname.len() - 1] == "xz") {
-                    print!("Archive detected. Extracting ... ");
+                let file_info = get_file_info(format!("/usr/local/bin/{}", fname[fname.len() - 1])).to_lowercase();
+                if file_info.contains("gz") || file_info.contains("xz") || file_info.contains("tar")  {
+                    print!("File {} is an archive. Extracting ... ", fname[fname.len() - 1]);
                     std::io::stdout().flush().unwrap();
                     Command::new("tar")
                         .arg("-xf")
-                        .arg(&format!("/usr/local/bin/{}", truename))
+                        .arg(&format!("/usr/local/bin/{}", fname[fname.len() - 1]))
                         .arg("-C")
                         .arg("/usr/local/bin/")
                         .spawn()
@@ -127,25 +133,44 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     print!("Updating configuration ... ");
                     let tarraw = Command::new("tar")
                         .arg("-tf")
-                        .arg(&format!("/usr/local/bin/{}", truename))
+                        .arg(&format!("/usr/local/bin/{}", fname[fname.len() - 1]))
                         .output()
                         .expect(&"Faliure".red().bold());
                     let tardata = String::from_utf8(tarraw.stdout).expect(&"Faliure".red().bold());
                     let tarparts: Vec<&str> = tardata.split("\n").collect();
-                    for tarpart in tarparts {
+                    for tarpart in &tarparts {
                         file.write_all(format!("{}\n", tarpart).as_bytes())?;
                     }
+                    println!("{}", "Success".green().bold());
+                    for tarpart in tarparts {
+                        let file_info = get_file_info(format!("/usr/local/bin/{}", tarpart)).to_lowercase();
+                        if file_info.contains("executable") && file_info.contains("linux") {
+                            print!("Marking file {} as executable ... ", tarpart);
+                            Command::new("chmod")
+                            .arg("a+x")
+                            .arg(&format!("/usr/local/bin/{}", tarpart))
+                            .spawn()
+                            .expect(&"Faliure".red().bold());
+                            println!("{}", "Success".green().bold());
+                        }
+                    }
+                    print!("Deleting archive {} ... ", fname[fname.len() - 1]);
+                    fs::remove_file(format!("/usr/local/bin/{}", fname[fname.len() - 1]))?    ;
                     println!("{}", "Success".green().bold());
                 } else {
                     print!("Updating configuration ... ");
                     std::io::stdout().flush().unwrap();
-                    file.write_all(format!("{}\n", truename).as_bytes())?;
-                    Command::new("chmod")
-                        .arg("a+x")
-                        .arg(&format!("/usr/local/bin/{}", truename))
-                        .spawn()
-                        .expect(&"Faliure".red().bold());
+                    file.write_all(format!("{}\n", fname[fname.len() - 1]).as_bytes())?;
                     println!("{}", "Success".green().bold());
+                    if file_info.contains("executable") && file_info.contains("linux") {
+                        print!("Marking file {} as executable ... ", fname[fname.len() - 1]);
+                        Command::new("chmod")
+                            .arg("a+x")
+                            .arg(&format!("/usr/local/bin/{}", fname[fname.len() - 1]))
+                            .spawn()
+                            .expect(&"Faliure".red().bold());
+                        println!("{}", "Success".green().bold());
+                    }
                 }
             }
         }
@@ -312,7 +337,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     if args[1] == "help" {
         if args.len() < 3 {
-            println!("Github Automated Installation Application v0.1.0
+            println!("Github Automated Installation Application v0.1.1
 Usage: gaia <subcommand> <arguments>
 
 gaia is a commandline installation application. It is designed to automate
