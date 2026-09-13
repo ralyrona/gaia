@@ -3,7 +3,7 @@ GAIA is commandline installation application with a similar syntax to Apt. It is
 <sub>*Excluding repositories in the [Limitations section](https://github.com/ralyrona/gaia#Limitations).</sub>
 # How to Install
 Note that GAIA is currently compatible only with Debian-based GNU/Linux.
-1. Install cURL with `sudo apt install curl`.
+1. Install cURL with `sudo apt install curl`. (Note: If you are using the latest prerelease v0.1.2-beta.0, then you do not need to do this)
 2. Download GAIA from one of the releases.
 3. Execute it from the commandline (if you are trying to use a commandline installation application we would hope that you know how to do that) ***as root*** with the argument `setup` (e.g. `sudo ./gaia setup`). It will then install itself into your `/usr/local/bin` directory and allow you to use by running the `gaia` command.
 # How to Use
