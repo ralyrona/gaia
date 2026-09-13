@@ -27,11 +27,11 @@ Remove removes applications and any configuration data that *GAIA* created for t
 # Compilation from Source
 Building for debug:
 ```bash
-git clone
+git clone https://github.com/ralyrona/gaia.git
 cargo build
 ```
 Building for release:
 ```bash
-git clone
+git clone https://github.com/ralyrona/gaia.git
 cargo build --release
 ```
