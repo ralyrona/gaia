@@ -28,10 +28,12 @@ Remove removes applications and any configuration data that *GAIA* created for t
 Building for debug:
 ```bash
 git clone https://github.com/ralyrona/gaia.git
+cd gaia
 cargo build
 ```
 Building for release:
 ```bash
 git clone https://github.com/ralyrona/gaia.git
+cd gaia
 cargo build --release
 ```
