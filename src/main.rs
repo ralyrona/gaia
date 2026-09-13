@@ -20,6 +20,7 @@ use std::process::{Command, exit};
 use std::io::prelude::*;
 use std::path::Path;
 use std::path::PathBuf;
+use std::os::unix::fs::PermissionsExt;
 // additional dependencies
 use reqwest::blocking;
 use reqwest::header::USER_AGENT;
@@ -202,21 +203,39 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 if filetype.contains("executable") {
                     let filetype_full = get_file_info_full(files[0].clone());
                     if filetype_full.contains("ELF") && filetype_full.contains("x86") {
-                        println!("{}", "Success".green().bold());
+                        println!("{}, {file_name_pretty} is a valid executable", "Success".green().bold());
                         print!("Installing to {install} ... ");
                         std::io::stdout().flush().unwrap();
+                        let mut configfile = File::create(format!("{config}{}/{}", repo[0], repo[1]))?;
+                        let mut configinfo = String::new();
                         let mut path = PathBuf::from(files[0].clone());
                         path.pop();
-                        let files_one_last_time =  fs::read_dir(format!("{}", path.display()))?;
-                        for file_one_last_time in files_one_last_time {
-                            let oh_my_fucking_god = file_one_last_time?.path();
-                            let pretty_name = Path::new(&oh_my_fucking_god).file_name().unwrap().display().to_string();
-                            if oh_my_fucking_god.is_dir() {
-                                copy_dir_all(oh_my_fucking_god, format!("{install}{pretty_name}"))?;
-                            } else {
-                                fs::copy(oh_my_fucking_god, format!("{install}{pretty_name}"))?;
+                        if path == PathBuf::from(&temp) {
+                            fs::copy(format!("{temp}/{file_name_pretty}"), format!("{install}{file_name_pretty}"))?;
+                            configinfo = format!("{configinfo}{file_name_pretty}\n");
+                            let perms = fs::Permissions::from_mode(0o555);
+                            let installed = File::open(format!("{install}{file_name_pretty}"))?;
+                            installed.set_permissions(perms)?;
+                        } else {
+                            let files_one_last_time = fs::read_dir(format!("{}", path.display()))?;
+                            for file_one_last_time in files_one_last_time {
+                                let oh_my_fucking_god = file_one_last_time?.path();
+                                let pretty_name = Path::new(&oh_my_fucking_god).file_name().unwrap().display().to_string();
+                                if oh_my_fucking_god.is_dir() {
+                                    copy_dir_all(oh_my_fucking_god, format!("{install}{pretty_name}"))?;
+                                } else {
+                                    fs::copy(oh_my_fucking_god, format!("{install}{pretty_name}"))?;
+                                    let perms = fs::Permissions::from_mode(0o555);
+                                    let installed = File::open(format!("{install}{file_name_pretty}"))?;
+                                    installed.set_permissions(perms)?;
+                                }
+                                configinfo = format!("{configinfo}{pretty_name}\n");
                             }
                         }
+                        println!("{}", "Success".green().bold());
+                        std::io::stdout().flush().unwrap();
+                        print!("Writing configuration ... ");
+                        configfile.write_all(configinfo.as_bytes())?;
                         println!("{}", "Success".green().bold());
                         println!("{} {}", "Installation complete, overall".bold(), "Success".green().bold());
                         break 'download;
@@ -255,11 +274,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let split: Vec<&str> = contents.split("\n").collect();
             for i in split {
                 if i != "" {
-                    print!("Removing file {} ... ", i);
+                    print!("Removing {} ... ", i);
                     std::io::stdout().flush().unwrap();
-                    if !fs::exists(install.to_owned() + i).expect(&format!("{}: Could not determine whether the file exists", "Faliure".yellow().bold())) {
-                        print!("{}: The file {} does not exist. ", "Note".blue().bold(), i);
-
+                    if !fs::exists(install.to_owned() + i).expect(&format!("{}: Could not determine whether the file exists", "!FATAL!".yellow().bold())) {
+                        println!("{}: {} does not exist. ", "Skipped".magenta().bold(), i);
+                        continue;
                     } else if fs::metadata(install.to_owned() + i)?.is_file() {
                         fs::remove_file(format!("{}{}", install, i))?;
                     } else if fs::metadata(install.to_owned() + i)?.is_dir() {
@@ -272,6 +291,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             std::io::stdout().flush().unwrap();
             fs::remove_file(format!("{}{}", config, remove))?;
             println!("{}", "Success".green().bold());
+            println!("{} {}", "Removal complete, overall".bold(), "Success".green().bold());
         } else {
             println!("{}: {} is not installed", "Error".yellow().bold(), args[2]);
         }
