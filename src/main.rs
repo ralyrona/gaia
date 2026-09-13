@@ -29,6 +29,7 @@ use colored::Colorize;
 use xz::read::XzDecoder;
 use tar::Archive;
 use flate2::read::GzDecoder;
+use zip::read::ZipArchive;
 
 fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<(), std::io::Error> {
     fs::create_dir_all(&dst)?;
@@ -83,7 +84,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("{}: {} is not a valid application name. Run 'gaia help install' for more information.", "Error".yellow().bold(), args[2]);
             process::exit(3);
         }
-        print!("Preparing to install {} ... ", args[2]);
+        print!("Preparing to install {} ... ", repo[1]);
         std::io::stdout().flush().unwrap();
         let url = format!("https://api.github.com/repos/{}/releases/latest", args[2].to_lowercase());
         fs::create_dir_all(format!("{config}{}", repo[0].to_lowercase()))?;
@@ -106,7 +107,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let rawjson = &response.text()?;
         let json = json::parse(rawjson)?;
         let mut i = 0;
-        'download: while !json["assets"][i].is_null() {
+        while !json["assets"][i].is_null() {
             let asset = &json["assets"][i]["browser_download_url"].to_string();
             let fname = Path::new(asset).file_name().expect("Unable to parse file name").display().to_string();
             print!("Downloading file {fname} ... ");
@@ -200,6 +201,37 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     files.remove(0);
                     continue;
                 }
+                if filetype == "application/zip\n" {
+                    println!("{}", "Success".green().bold());
+                    print!("Extracting zip file {file_name_pretty} ... ");
+                    std::io::stdout().flush().unwrap();
+                    fs::create_dir_all(format!("{temp}/{file_name_pretty}_extraction_dest"))?;
+                    let zip = File::open(format!("{temp}/{file_name_pretty}"))?;
+                    let mut archive = ZipArchive::new(zip)?;
+                    archive.extract_unwrapped_root_dir(format!("{temp}/{file_name_pretty}_extraction_dest"), zip::read::root_dir_common_filter)?;
+                    println!("{}", "Success".green().bold());
+                    print!("Reading contents of extracted directory ... ");
+                    std::io::stdout().flush().unwrap();
+                    let files_again = fs::read_dir(format!("{temp}/{file_name_pretty}_extraction_dest"))?;
+                    for f in files_again {
+                        let file = f?.path().display().to_string();
+                        let finfo = get_file_info_full(file.clone());
+                        // im going fucking insane
+                        let files2electricboogaloo = fs::read_dir(format!("{temp}/{file_name_pretty}_extraction_dest"))?;
+                        if finfo.contains("directory") && files2electricboogaloo.count() == 1 {
+                            let files_again_again = fs::read_dir(format!("{}", file))?;
+                            for ff in files_again_again {
+                                files.push(ff?.path().display().to_string());
+                            }
+                            break;
+                        } else {
+                            files.push(file.clone());
+                        }
+                    }
+                    println!("{}", "Success".green().bold());
+                    files.remove(0);
+                    continue;
+                }
                 if filetype.contains("executable") {
                     let filetype_full = get_file_info_full(files[0].clone());
                     if filetype_full.contains("ELF") && filetype_full.contains("x86") {
@@ -238,7 +270,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         configfile.write_all(configinfo.as_bytes())?;
                         println!("{}", "Success".green().bold());
                         println!("{} {}", "Installation complete, overall".bold(), "Success".green().bold());
-                        break 'download;
+                        exit(0);
                     } else {
                         println!("{} {file_name_pretty} is not a valid executable", "Done but".cyan().bold());
                         files.remove(0);
@@ -250,20 +282,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             i += 1;
         }
+        println!("{} {}: No valid executable found", "Installation complete, overall".bold(), "Faliure".red().bold());
     }
     if args[1] == "remove" {
         if args.len() < 3 {
             println!("{}: No application specified", "Error".yellow().bold());
             process::exit(3);
         }
-        print!("Getting {}'s file list ... ", args[2]);
-        std::io::stdout().flush().unwrap();
         let repo: Vec<&str> = args[2].split("/").collect();
+        println!("{:#?}", repo);
         let remove = args[2].to_lowercase();
-        if repo.len() < 2 {
-            println!("{}: {} is not a valid application name. Run 'gaia help remove' for more information.", "Error".yellow().bold(), args[2]);
-            process::exit(4);
-        }
+        print!("Getting {}'s file list ... ", repo[1]);
+        std::io::stdout().flush().unwrap();
         let pathstr = format!("{}{}", config, remove);
         let path = Path::new(&pathstr);
         if path.exists() {
@@ -287,13 +317,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     println!("{}", "Success".green().bold());
                 }
             }
-            print!("Removing {}'s file list ... ", remove);
+            print!("Removing {}'s file list ... ", repo[1]);
             std::io::stdout().flush().unwrap();
             fs::remove_file(format!("{}{}", config, remove))?;
             println!("{}", "Success".green().bold());
             println!("{} {}", "Removal complete, overall".bold(), "Success".green().bold());
         } else {
-            println!("{}: {} is not installed", "Error".yellow().bold(), args[2]);
+            println!("{}: Unable to get {}'s file list", "Faliure".red().bold(), repo[1]);
         }
     }
     if args[1] == "setup" {
