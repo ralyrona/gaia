@@ -21,15 +21,17 @@ use std::io::prelude::*;
 use std::path::Path;
 use std::path::PathBuf;
 use std::os::unix::fs::PermissionsExt;
-// additional dependencies
+// reqwest
 use reqwest::blocking;
 use reqwest::header::USER_AGENT;
 use reqwest::StatusCode;
-use colored::Colorize;
+// archive extraction
 use xz::read::XzDecoder;
 use tar::Archive;
 use flate2::read::GzDecoder;
 use zip::read::ZipArchive;
+// this too i guess
+use colored::Colorize;
 
 fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<(), std::io::Error> {
     fs::create_dir_all(&dst)?;
@@ -58,6 +60,9 @@ fn get_file_info_full(filepath: String) -> String {
         .output()
         .expect(&format!("{}", "Faliure".red().bold()));
     String::from_utf8(fileinfo_raw.stdout).expect(&format!("{}", "Faliure".red().bold()))
+}
+fn complete() {
+
 }
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = "/etc/gaia/";
@@ -96,7 +101,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         match response.status() {
             StatusCode::OK => println!("{}", "Success".green().bold()),
             StatusCode::NOT_FOUND => {
-                println!("{}: That repository doesn't exist (404 not found)", "Faliure".red().bold());
+                println!("{}: That repository doesn't exist, or it doesn't have any releases (404 not found)", "Faliure".red().bold());
                 exit(4);
             },
             _ => {
