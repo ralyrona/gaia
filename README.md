@@ -1,5 +1,5 @@
 # Github Automated Installation Application
-GAIA is commandline installation application with a similar syntax to Apt. It is designed to install applications from GitHub, the world's largest open-source file sharing website. It can download executable files from the releases of almost any Github repository!
+GAIA is commandline installation application with a similar syntax to Apt. It is designed to install applications from GitHub, the world's largest open-source repository website. It can download executable files from the releases of almost any Github repository!
 ...Well, in theory, anyway. In practice, it still needs a lot of work and will often fail. But its getting there!
 # How to Install
 Note that GAIA is currently compatible only with Debian-based GNU/Linux.

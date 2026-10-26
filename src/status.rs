@@ -22,7 +22,7 @@ macro_rules! info {
 #[macro_export]
 macro_rules! done_but {
     ($($arg:tt)*) => {{
-        eprintln!("\x1B[1;34;1;36mDone but\x1B[0m {}", format_args!($($arg)*));
+        eprint!("\x1B[1;34;1;36mDone but\x1B[0m {}", format_args!($($arg)*));
     }};
 }
 pub fn succeed() {
@@ -31,4 +31,10 @@ pub fn succeed() {
 pub fn finish(string: &str) {
     eprintln!("\x1b[1m{string} complete\x1b[0m");
     std::process::exit(0);
+}
+pub fn handle_result<T, E: std::fmt::Display>(result: Result<T, E>) -> T {
+    return match result {
+        Ok(x) => x,
+        Err(e) => fail!("{e}"),
+    }
 }
