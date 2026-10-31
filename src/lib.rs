@@ -34,7 +34,7 @@ use crate::files::*;
 const CONFIG_DIR: &str = "/etc/gaia/";
 const INSTALL_DIR: &str = "/usr/local/bin";
 const TEMP_DIR: &str = "/tmp";
-const VERSION: &str = "0.2.1";
+const VERSION: &str = "0.1.4";
 static USER_AGENT_NAME: LazyLock<String> = LazyLock::new(|| {
     "GAIA Github Automated Installation Application Version ".to_owned() + VERSION
 });
